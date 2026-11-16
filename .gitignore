@@ -1,0 +1,117 @@
+# =================================================-----------
+# Segredos e configuração local
+# ============================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.der
+*.p12
+*.pfx
+*.jks
+keystore/
+secrets/
+!secrets/.gitkeep
+
+# ============================================================
+# Dados coletados: fotos e exports (ficam fora do Git)
+# O backend grava fotos em data/photos (subpastas AAAA/MM) e
+# exports ficam em data/exports. Apenas a estrutura (*.gitkeep)
+# é versionada.
+# ============================================================
+/data/photos/*
+/data/exports/*
+!/data/photos/.gitkeep
+!/data/exports/.gitkeep
+# Pastas de fotos/uploads alternativas usadas em dev local:
+/backend/data/
+/backend/uploads/
+/uploads/
+**/uploads/
+**/uploads/.gitkeep
+
+# ============================================================
+# Banco de dados local (PostgreSQL em pasta/volume)
+# ============================================================
+/pgdata/
+/pgdata-backup/
+/postgres-data/
+/postgres/
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+*.sql.gz
+*.dump
+*.backup
+
+# ============================================================
+# Modelos treinados e pesos pesados
+# ============================================================
+/data/models/*
+!/data/models/.gitkeep
+/backend/data/models/
+/models/
+*.pt
+*.pth
+*.onnx
+*.joblib
+*.pkl
+*.pickle
+*.h5
+*.keras
+*.tflite
+*.safetensors
+*.ckpt
+*.bin
+
+# ============================================================
+# Dependências e builds
+# ============================================================
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+*.tsbuildinfo
+# Artefatos gerados pelo build TS do Vite
+frontend/vite.config.js
+frontend/vite.config.d.ts
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+htmlcov/
+.coverage
+.coverage.*
+# Frontend diverso
+*.log
+logs/
+
+# ============================================================
+# Sistema e editores
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+*.swp
+*.swo
+*~
+
+# Cache e temporários
+.cache/
+*.tmp
+*.bak

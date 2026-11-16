@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gado
+      POSTGRES_PASSWORD: gado
+      POSTGRES_DB: gado
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gado -d gado"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        INSTALL_ML: ${INSTALL_ML:-false}
+    environment:
+      DATABASE_URL: postgresql+psycopg://gado:gado@db:5432/gado
+      DATA_DIR: /data
+      PHOTOS_DIR: /data/photos
+      MODELS_DIR: /data/models
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      MIN_ANIMALS_FOR_MODEL: ${MIN_ANIMALS_FOR_MODEL:-30}
+      MIN_PHOTOS_PER_WEIGHING: ${MIN_PHOTOS_PER_WEIGHING:-3}
+      MAX_PHOTOS_PER_WEIGHING: ${MAX_PHOTOS_PER_WEIGHING:-5}
+      MAX_TILT_DEG: ${MAX_TILT_DEG:-5}
+      MAX_FRAMES_PER_PASSAGE: ${MAX_FRAMES_PER_PASSAGE:-8}
+      SEGMENTATION_ENABLED: ${SEGMENTATION_ENABLED:-false}
+      YOLO_WEIGHTS: ${YOLO_WEIGHTS:-yolov8n-seg.pt}
+    volumes:
+      # Volume persistente do banco é nomeado; fotos/modelos ficam em ./data.
+      - ./data:/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+    ports:
+      # HTTPS com certificado autoassinado: necessário para câmera/PWA no celular.
+      - "5173:443"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

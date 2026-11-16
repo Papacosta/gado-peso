@@ -1,0 +1,251 @@
+/* Estilos globais: variáveis, tipografia, componentes-base */
+:root {
+  --primary: #2e7d32;
+  --primary-dark: #1b5e20;
+  --accent: #ffb300;
+  --bg: #f1f8e9;
+  --card: #ffffff;
+  --text: #212121;
+  --text-muted: #616161;
+  --danger: #c62828;
+  --warning: #ef6c00;
+  --success: #2e7d32;
+  --border: #c8e6c9;
+  --radius: 12px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --touch: 48px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Botões grandes e acessíveis */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  min-height: var(--touch);
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background 0.15s, transform 0.05s;
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+.btn-secondary {
+  background: #e8f5e9;
+  color: var(--primary);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover {
+  background: #dcedc8;
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn-warning {
+  background: var(--warning);
+  color: #fff;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+select,
+textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  min-height: var(--touch);
+}
+input:invalid,
+select:invalid {
+  border-color: var(--danger);
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-ok {
+  background: #e8f5e9;
+  color: var(--success);
+}
+.badge-warn {
+  background: #fff8e1;
+  color: var(--warning);
+}
+.badge-danger {
+  background: #fdeaea;
+  color: var(--danger);
+}
+
+.form-row {
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 500px) {
+  .form-row.two {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.toast {
+  position: fixed;
+  bottom: 80px;
+  left: 16px;
+  right: 16px;
+  max-width: 400px;
+  margin: 0 auto;
+  background: var(--text);
+  color: #fff;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  animation: slide-up 0.2s ease;
+}
+.toast-success {
+  background: var(--success);
+}
+.toast-error {
+  background: var(--danger);
+}
+.toast-warning {
+  background: var(--warning);
+}
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Barra de navegação inferior */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  padding: 6px 0;
+  z-index: 100;
+}
+.nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  min-height: 56px;
+  min-width: 64px;
+}
+.nav-btn.active {
+  color: var(--primary);
+}
+.nav-btn svg {
+  width: 24px;
+  height: 24px;
+}
+.nav-btn span {
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
+/* Área de conteúdo principal */
+main {
+  padding: 16px;
+  padding-bottom: 90px;
+  max-width: 600px;
+  margin: 0 auto;
+}
