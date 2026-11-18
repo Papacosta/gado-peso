@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: gado
-      POSTGRES_PASSWORD: gado
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gado}
       POSTGRES_DB: gado
     ports:
       # Só acessível no próprio Mac (não fica exposto na rede).
@@ -24,7 +24,7 @@ services:
       args:
         INSTALL_ML: ${INSTALL_ML:-false}
     environment:
-      DATABASE_URL: postgresql+psycopg://gado:gado@db:5432/gado
+      DATABASE_URL: postgresql+psycopg://gado:${POSTGRES_PASSWORD:-gado}@db:5432/gado
       DATA_DIR: /data
       PHOTOS_DIR: /data/photos
       MODELS_DIR: /data/models
