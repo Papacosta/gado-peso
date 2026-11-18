@@ -1,12 +1,75 @@
-# Gado Peso — estimativa de peso de bovinos por foto (câmera fixa)
+# Gado Peso — pesar gado sem balança
 
-MVP em produção para uso em campo: o celular fica **sempre no mesmo ponto** (tripé/suporte),
-o animal é fotografado **de lado** e o app estima o peso em kg com faixa de incerteza
-(`412 kg ± 25 kg`). O aprendizado vem **exclusivamente** das pesagens reais cadastradas
-pelo próprio usuário — nenhum dataset de terceiros é usado.
+[![CI](https://github.com/Papacosta/gado-peso/actions/workflows/ci.yml/badge.svg)](https://github.com/Papacosta/gado-peso/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-TypeScript-61DAFB?logo=react&logoColor=black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Status:** Fase 1 (coleta padronizada) completa; Fase 2 (segmentação + regressão)
-> estruturada e ativável quando houver dados suficientes.
+> 🇬🇧 [English version](README.en.md)
+
+**O problema:** balança de gado é cara, pesada e exige levar cada animal até ela. Muitos
+produtores pesam pouco (ou nunca) e decidem venda, suplementação e manejo "no olho".
+
+**A solução:** um app de celular que estima o peso do boi **por foto lateral**, com o celular
+preso num ponto fixo do curral. No **modo passagem**, o celular fica parado no corredor,
+detecta sozinho cada animal que passa, escolhe os melhores quadros e devolve o peso com faixa
+de incerteza (`412 kg ± 25 kg`). O modelo aprende **só com pesagens reais do próprio
+produtor** — sem dataset de terceiros.
+
+Construído para uso real em fazenda: funciona **offline** (sinal ruim é a regra no campo),
+roda num Mac com Docker e é acessado pelo celular de qualquer lugar por um link HTTPS com senha.
+
+## Destaques técnicos
+
+- **Visão computacional no navegador, sem rede neural:** detector de passagem por subtração
+  de fundo em quadros reduzidos, caixa por projeções e máquina de estados
+  (entra → candidato → sai) que lida com animais encostados e câmera "travada"
+  ([`passageDetector.ts`](frontend/src/lib/passageDetector.ts)).
+- **Pipeline de ML com avaliação honesta:** segmentação YOLOv8-seg → medidas da silhueta →
+  regressão Ridge / Gradient Boosting, validada com `GroupKFold` **por animal** (evita vazamento
+  entre fotos do mesmo boi). Faixa de incerteza = ±1,28 × MAE da validação cruzada.
+- **Agregação robusta por passagem:** mediana das estimativas por quadro, descarte de outliers
+  por desvio absoluto mediano (MAD) e faixa que considera a dispersão entre quadros.
+- **Offline-first:** PWA com fila no IndexedDB e UUIDs gerados no cliente, então reenvios são
+  **idempotentes** (nada duplica quando a internet volta).
+- **Sensores do celular:** inclinação, GPS, luz e profundidade gravados por foto (JSONB), com
+  avisos de qualidade em vez de bloquear o uso.
+- **Infra:** Docker Compose (Postgres + FastAPI + nginx/HTTPS), migrações Alembic, autenticação
+  no nginx, link público fixo via Tailscale Funnel e CI com GitHub Actions.
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+  subgraph Celular["Celular (PWA React + TS)"]
+    CAM[Câmera fixa] --> DET[Detector de passagem]
+    DET --> Q[(Fila offline<br/>IndexedDB)]
+  end
+  Q -- HTTPS + senha --> NG[nginx]
+  NG --> API[FastAPI]
+  API --> DB[(PostgreSQL)]
+  API --> FS[(Fotos e modelos<br/>em disco)]
+  API --> ML[Segmentação YOLOv8-seg<br/>+ regressão scikit-learn]
+```
+
+| Camada | Tecnologias |
+|---|---|
+| Frontend | React, TypeScript, Vite, PWA (service worker), IndexedDB, Canvas, APIs de sensores |
+| Backend | Python 3.12, FastAPI, SQLAlchemy 2, Pydantic v2, Alembic, OpenCV, scikit-learn |
+| ML (opcional) | Ultralytics YOLOv8-seg, PyTorch |
+| Dados | PostgreSQL (JSONB), arquivos em volume |
+| Infra | Docker Compose, nginx, Tailscale Funnel / Cloudflare Tunnel, GitHub Actions |
+
+## Status
+
+- ✅ **Fase 1 — coleta padronizada:** fotos, sensores, pesagens reais, painel, exportação CSV/ZIP.
+- ✅ **Modo passagem:** captura automática e estimativa por animal.
+- ✅ **Fase 2 — estimativa:** pipeline pronto e testado; **o modelo só é ativado depois de
+  coletar pesagens reais suficientes** (mínimo de 30 animais). Ainda não há números de precisão
+  com dados de campo.
 
 ---
 
