@@ -7,6 +7,18 @@ interface ToastState {
   type: ToastType;
 }
 
+const TITLES: Record<ToastType, string> = {
+  success: "Pronto",
+  error: "Erro",
+  warning: "Atenção",
+  info: "Aviso",
+};
+
+/**
+ * Mensagens rápidas. As regiões ao vivo ficam sempre no DOM (leitores de tela
+ * só anunciam mudanças em regiões já existentes). Erros ficam mais tempo na
+ * tela e podem ser fechados.
+ */
 export default function Toaster() {
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -15,7 +27,7 @@ export default function Toaster() {
     const off = onToast((t) => {
       setToast(t);
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => setToast(null), 4500);
+      timer = window.setTimeout(() => setToast(null), t.type === "error" ? 10000 : 6000);
     });
     return () => {
       off();
@@ -23,18 +35,32 @@ export default function Toaster() {
     };
   }, []);
 
-  if (!toast) return null;
+  const urgent = toast?.type === "error";
   const cls =
-    toast.type === "success"
+    toast?.type === "success"
       ? "toast-success"
-      : toast.type === "error"
+      : toast?.type === "error"
         ? "toast-error"
-        : toast.type === "warning"
+        : toast?.type === "warning"
           ? "toast-warning"
           : "";
-  return (
-    <div className={`toast ${cls}`} role="status" onClick={() => setToast(null)}>
-      {toast.message}
+
+  const body = toast && (
+    <div className={`toast ${cls}`}>
+      <div>
+        <span className="sr-only">{TITLES[toast.type]}: </span>
+        {toast.message}
+      </div>
+      <button type="button" className="toast-close" onClick={() => setToast(null)} aria-label="Fechar mensagem">
+        ×
+      </button>
     </div>
+  );
+
+  return (
+    <>
+      <div role="status" aria-live="polite">{!urgent && body}</div>
+      <div role="alert" aria-live="assertive">{urgent && body}</div>
+    </>
   );
 }

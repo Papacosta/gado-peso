@@ -4,6 +4,7 @@ import { cacheGet, cacheSet, enqueue, localSettings } from "../lib/queue";
 import { nowIso, uuid } from "../lib/format";
 import { showToast } from "../lib/toast";
 import type { CapturePoint } from "../types";
+import PageHeader from "../components/PageHeader";
 
 const EMPTY = {
   name: "",
@@ -18,6 +19,7 @@ export default function Pontos() {
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [tried, setTried] = useState(false);
   const [selected, setSelected] = useState<string | null>(localSettings.capturePointId);
 
   useEffect(() => {
@@ -33,11 +35,32 @@ export default function Pontos() {
       });
   }, []);
 
+  const errors = {
+    name: !form.name.trim() ? "Dê um nome ao ponto." : null,
+    distance:
+      !form.distance_cm
+        ? "Informe a distância."
+        : Number(form.distance_cm) < 50 || Number(form.distance_cm) > 3000
+          ? "Use um valor entre 50 e 3000 cm."
+          : null,
+    height:
+      !form.camera_height_cm
+        ? "Informe a altura."
+        : Number(form.camera_height_cm) < 10 || Number(form.camera_height_cm) > 400
+          ? "Use um valor entre 10 e 400 cm."
+          : null,
+  };
+  const hasErrors = Object.values(errors).some(Boolean);
+
+  function closeForm() {
+    setForm({ ...EMPTY });
+    setTried(false);
+    setShowForm(false);
+  }
+
   async function handleSave() {
-    if (!form.name.trim() || !form.distance_cm || !form.camera_height_cm) {
-      showToast("Preencha nome, distância e altura da câmera.", "warning");
-      return;
-    }
+    setTried(true);
+    if (hasErrors) return;
     setSaving(true);
     try {
       const created = await api.createCapturePoint({
@@ -50,8 +73,11 @@ export default function Pontos() {
       const next = [created, ...points.filter((p) => p.id !== created.id)];
       setPoints(next);
       cacheSet("capturePoints", next);
-      setForm({ ...EMPTY });
-      setShowForm(false);
+      if (!selected) {
+        localSettings.capturePointId = created.id;
+        setSelected(created.id);
+      }
+      closeForm();
       showToast("Ponto de captura salvo.", "success");
     } catch (err) {
       const message = apiError(err);
@@ -74,94 +100,154 @@ export default function Pontos() {
       const next = [local, ...points];
       setPoints(next);
       cacheSet("capturePoints", next);
-      setForm({ ...EMPTY });
-      setShowForm(false);
-      showToast(`Sem conexão: ponto salvo na fila local (${message}).`, "warning");
+      if (!selected) {
+        localSettings.capturePointId = id;
+        setSelected(id);
+      }
+      closeForm();
+      showToast("Sem conexão: ponto salvo no celular e será enviado depois.", "info");
+      console.warn(message);
     } finally {
       setSaving(false);
     }
   }
 
+  const field = (
+    id: string,
+    label: string,
+    key: keyof typeof EMPTY,
+    opts: { required?: boolean; number?: boolean; placeholder?: string; hint?: string; error?: string | null } = {}
+  ) => (
+    <div className="field">
+      <label htmlFor={id} className="field-label">
+        {label} {opts.required && <span className="req">*</span>}
+      </label>
+      <input
+        id={id}
+        type={opts.number ? "number" : "text"}
+        inputMode={opts.number ? "numeric" : undefined}
+        min={opts.number ? 0 : undefined}
+        required={opts.required}
+        value={form[key]}
+        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+        placeholder={opts.placeholder}
+        aria-invalid={tried && Boolean(opts.error)}
+        aria-describedby={`${id}-ajuda ${id}-erro`}
+      />
+      {opts.hint && <span id={`${id}-ajuda`} className="field-hint">{opts.hint}</span>}
+      {tried && opts.error && <span id={`${id}-erro`} className="field-error">{opts.error}</span>}
+    </div>
+  );
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <h2 style={{ fontSize: "1.2rem", margin: 0 }}>Pontos de captura</h2>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? "Fechar" : "+ Novo"}
-        </button>
-      </div>
+      <PageHeader
+        title="Pontos de captura"
+        description="O lugar fixo onde o celular fica no tripé. As fotos só são comparáveis se forem do mesmo ponto."
+        action={
+          !showForm && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowForm(true)}>
+              + Cadastrar
+            </button>
+          )
+        }
+      />
+      <p className="small">
+        <a href="#/ajustes">← Voltar para Ajustes</a>
+      </p>
 
-      <div className="card" style={{ borderLeft: "4px solid var(--warning)", fontSize: "0.85rem" }}>
-        <strong>Atenção:</strong> a câmera deve ficar sempre no mesmo ponto. Trocar a distância ou a
-        altura invalida a comparação entre fotos de pontos diferentes.
+      <div className="alert alert-warn">
+        <strong>Importante</strong>
+        Não mude a distância nem a altura do celular depois de cadastrar. Se mudar, cadastre um ponto novo.
       </div>
 
       {showForm && (
-        <div className="card">
-          <div className="card-title">Novo ponto de captura</div>
-          <div className="form-row" style={{ marginTop: 8 }}>
-            <label>
-              Nome do ponto *
-              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Mangueiro A — tripé 1" />
-            </label>
-            <label>
-              Celular usado
-              <input value={form.device_model} onChange={(e) => setForm({ ...form, device_model: e.target.value })} placeholder="Ex.: Galaxy A54" />
-            </label>
+        <form
+          className="card"
+          noValidate
+          aria-labelledby="novo-ponto"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSave();
+          }}
+        >
+          <h2 id="novo-ponto" className="card-title" style={{ marginTop: 0 }}>
+            Novo ponto de captura
+          </h2>
+          <p className="form-note">
+            Campos com <span className="req">*</span> são obrigatórios.
+          </p>
+          <div className="form-row">
+            {field("nome", "Nome do ponto", "name", { required: true, placeholder: "Ex.: Mangueiro A — tripé 1", error: errors.name })}
+            {field("celular", "Celular usado", "device_model", { placeholder: "Ex.: Galaxy A54" })}
             <div className="form-row two">
-              <label>
-                Distância câmera–animal (cm) *
-                <input type="number" min={0} value={form.distance_cm} onChange={(e) => setForm({ ...form, distance_cm: e.target.value })} />
-              </label>
-              <label>
-                Altura da câmera (cm) *
-                <input type="number" min={0} value={form.camera_height_cm} onChange={(e) => setForm({ ...form, camera_height_cm: e.target.value })} />
-              </label>
+              {field("distancia", "Distância até o animal (cm)", "distance_cm", {
+                required: true,
+                number: true,
+                hint: "Da lente até o meio do animal.",
+                error: errors.distance,
+              })}
+              {field("altura", "Altura do celular (cm)", "camera_height_cm", {
+                required: true,
+                number: true,
+                hint: "Do chão até a lente.",
+                error: errors.height,
+              })}
             </div>
-            <label>
-              Observações
-              <textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </label>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-              {saving ? "Salvando…" : "Salvar ponto"}
-            </button>
+            <div className="field">
+              <label htmlFor="obs-ponto" className="field-label">Observações</label>
+              <textarea id="obs-ponto" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+            <div className="btn-row">
+              <button type="button" className="btn btn-secondary" onClick={closeForm}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? "Salvando…" : "Salvar ponto"}
+              </button>
+            </div>
           </div>
-        </div>
+        </form>
       )}
 
-      <div style={{ display: "grid", gap: 8 }}>
+      <ul style={{ display: "grid", gap: 8, listStyle: "none", padding: 0, margin: 0 }} aria-label="Pontos cadastrados">
         {points.map((p) => (
-          <div key={p.id} className="card" style={{ padding: 12, marginBottom: 0, border: selected === p.id ? "2px solid var(--primary)" : undefined }}>
+          <li
+            key={p.id}
+            className="card"
+            style={{ padding: 12, marginBottom: 0, border: selected === p.id ? "2px solid var(--primary)" : undefined }}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
               <strong>{p.name}</strong>
               {selected === p.id ? (
-                <span className="badge badge-ok">Padrão</span>
+                <span className="badge badge-ok">✓ Ponto padrão</span>
               ) : (
                 <button
-                  className="btn btn-secondary"
-                  style={{ minHeight: 36, padding: "6px 12px", fontSize: "0.8rem" }}
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  aria-label={`Usar ${p.name} como ponto padrão`}
                   onClick={() => {
                     localSettings.capturePointId = p.id;
                     setSelected(p.id);
-                    showToast("Ponto padrão atualizado.", "success");
+                    showToast(`${p.name} agora é o ponto padrão.`, "success");
                   }}
                 >
-                  Usar
+                  Usar como padrão
                 </button>
               )}
             </div>
-            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 6 }}>
-              📏 {p.distance_cm} cm de distância · 📱 {p.camera_height_cm} cm de altura
+            <div className="small muted" style={{ marginTop: 6 }}>
+              {p.distance_cm} cm de distância · {p.camera_height_cm} cm de altura
               {p.device_model ? ` · ${p.device_model}` : ""}
             </div>
-          </div>
+          </li>
         ))}
-        {points.length === 0 && (
-          <div className="card" style={{ textAlign: "center", color: "var(--text-muted)" }}>
-            Cadastre o ponto onde o celular fica fixo no tripé.
-          </div>
-        )}
-      </div>
+      </ul>
+      {points.length === 0 && (
+        <div className="card muted" style={{ textAlign: "center" }}>
+          Nenhum ponto ainda. Cadastre o lugar onde o celular fica fixo no tripé.
+        </div>
+      )}
     </div>
   );
 }

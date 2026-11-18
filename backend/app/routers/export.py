@@ -125,7 +125,7 @@ def export_csv(db: Session = Depends(get_db)):
     return Response(
         content=_csv_bytes(rows),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="gado_dataset.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="pesovivo_dataset.csv"'},
     )
 
 
@@ -157,5 +157,5 @@ def export_zip(db: Session = Depends(get_db)):
     return StreamingResponse(
         buffer,
         media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="gado_dataset.zip"'},
+        headers={"Content-Disposition": 'attachment; filename="pesovivo_dataset.zip"'},
     )

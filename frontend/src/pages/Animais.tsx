@@ -5,6 +5,7 @@ import { nowIso, uuid } from "../lib/format";
 import { showToast } from "../lib/toast";
 import { CATEGORY_LABELS, SEX_LABELS } from "../lib/format";
 import type { Animal } from "../types";
+import PageHeader from "../components/PageHeader";
 
 const EMPTY = {
   ear_tag: "",
@@ -20,6 +21,8 @@ export default function Animais() {
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [tried, setTried] = useState(false);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     api.listAnimals()
@@ -35,11 +38,27 @@ export default function Animais() {
       });
   }, []);
 
+  const tag = form.ear_tag.trim();
+  const duplicate = tag !== "" && animals.some((a) => a.ear_tag.toLowerCase() === tag.toLowerCase());
+  const tagError = !tag ? "Informe o número do brinco." : duplicate ? `Já existe um animal com o brinco ${tag}.` : null;
+  const bcsError =
+    form.bcs && (Number(form.bcs) < 1 || Number(form.bcs) > 9) ? "O escore corporal vai de 1 a 9." : null;
+  const ageError = form.age_months && Number(form.age_months) < 0 ? "A idade não pode ser negativa." : null;
+
+  const q = query.trim().toLowerCase();
+  const visible = q
+    ? animals.filter((a) => [a.ear_tag, a.breed, a.category].some((v) => v?.toLowerCase().includes(q)))
+    : animals;
+
+  function closeForm() {
+    setForm({ ...EMPTY });
+    setTried(false);
+    setShowForm(false);
+  }
+
   async function handleSave() {
-    if (!form.ear_tag.trim()) {
-      showToast("Informe o brinco/ID do animal.", "warning");
-      return;
-    }
+    setTried(true);
+    if (tagError || bcsError || ageError) return;
     setSaving(true);
     try {
       const payload = {
@@ -54,9 +73,8 @@ export default function Animais() {
       const next = [created, ...animals.filter((a) => a.id !== created.id)];
       setAnimals(next);
       cacheSet("animals", next);
-      setForm({ ...EMPTY });
-      setShowForm(false);
-      showToast("Animal cadastrado.", "success");
+      closeForm();
+      showToast(`Animal com brinco ${created.ear_tag} cadastrado.`, "success");
     } catch (err) {
       const message = apiError(err);
       if (message.toLowerCase().includes("já existe")) {
@@ -84,9 +102,8 @@ export default function Animais() {
         const next = [local, ...animals];
         setAnimals(next);
         cacheSet("animals", next);
-        setForm({ ...EMPTY });
-        setShowForm(false);
-        showToast("Sem conexão: animal salvo na fila local.", "warning");
+        closeForm();
+        showToast("Sem conexão: animal salvo no celular e será enviado depois.", "info");
       }
     } finally {
       setSaving(false);
@@ -95,82 +112,165 @@ export default function Animais() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <h2 style={{ fontSize: "1.2rem", margin: 0 }}>Animais ({animals.length})</h2>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? "Fechar" : "+ Novo"}
-        </button>
-      </div>
+      <PageHeader
+        title={`Animais (${animals.length})`}
+        description="Cadastre cada animal pelo número do brinco antes de coletar."
+        action={
+          !showForm && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowForm(true)}>
+              + Cadastrar
+            </button>
+          )
+        }
+      />
 
       {showForm && (
-        <div className="card">
-          <div className="card-title">Cadastro do animal</div>
-          <div className="form-row" style={{ marginTop: 8 }}>
-            <label>
-              Brinco / ID *
-              <input value={form.ear_tag} onChange={(e) => setForm({ ...form, ear_tag: e.target.value })} placeholder="Ex.: 1042" />
-            </label>
-            <div className="form-row two">
-              <label>
-                Raça
-                <input value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })} placeholder="Nelore, Angus…" />
+        <form
+          className="card"
+          noValidate
+          aria-labelledby="novo-animal"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSave();
+          }}
+        >
+          <h2 id="novo-animal" className="card-title" style={{ marginTop: 0 }}>
+            Novo animal
+          </h2>
+          <p className="form-note">
+            Só o brinco é obrigatório (<span className="req">*</span>). O resto ajuda o modelo a errar menos.
+          </p>
+          <div className="form-row">
+            <div className="field">
+              <label htmlFor="brinco" className="field-label">
+                Brinco / identificação <span className="req">*</span>
               </label>
-              <label>
-                Sexo
-                <select value={form.sex} onChange={(e) => setForm({ ...form, sex: e.target.value })}>
-                  <option value="">—</option>
+              <input
+                id="brinco"
+                autoFocus
+                required
+                autoComplete="off"
+                value={form.ear_tag}
+                onChange={(e) => setForm({ ...form, ear_tag: e.target.value })}
+                placeholder="Ex.: 1042"
+                aria-invalid={(tried || duplicate) && Boolean(tagError)}
+                aria-describedby="brinco-erro"
+              />
+              {(tried || duplicate) && tagError && (
+                <span id="brinco-erro" className="field-error">
+                  {tagError}
+                </span>
+              )}
+            </div>
+            <div className="form-row two">
+              <div className="field">
+                <label htmlFor="raca" className="field-label">Raça</label>
+                <input id="raca" value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })} placeholder="Nelore, Angus…" />
+              </div>
+              <div className="field">
+                <label htmlFor="sexo" className="field-label">Sexo</label>
+                <select id="sexo" value={form.sex} onChange={(e) => setForm({ ...form, sex: e.target.value })}>
+                  <option value="">Não informado</option>
                   <option value="macho">Macho</option>
                   <option value="femea">Fêmea</option>
                 </select>
-              </label>
+              </div>
             </div>
             <div className="form-row two">
-              <label>
-                Categoria
-                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                  <option value="">—</option>
+              <div className="field">
+                <label htmlFor="categoria" className="field-label">Categoria</label>
+                <select id="categoria" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                  <option value="">Não informada</option>
                   <option value="bezerro">Bezerro</option>
                   <option value="novilha">Novilha</option>
                   <option value="vaca">Vaca</option>
                   <option value="boi">Boi</option>
                 </select>
-              </label>
-              <label>
-                Idade aprox. (meses)
-                <input type="number" min={0} value={form.age_months} onChange={(e) => setForm({ ...form, age_months: e.target.value })} />
-              </label>
+              </div>
+              <div className="field">
+                <label htmlFor="idade" className="field-label">Idade aproximada (meses)</label>
+                <input
+                  id="idade"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={form.age_months}
+                  onChange={(e) => setForm({ ...form, age_months: e.target.value })}
+                  aria-invalid={Boolean(ageError)}
+                  aria-describedby="idade-erro"
+                />
+                {ageError && <span id="idade-erro" className="field-error">{ageError}</span>}
+              </div>
             </div>
-            <label>
-              Escore de condição corporal (1–9, opcional)
-              <input type="number" min={0} max={9} step={0.5} value={form.bcs} onChange={(e) => setForm({ ...form, bcs: e.target.value })} />
-            </label>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-              {saving ? "Salvando…" : "Salvar animal"}
-            </button>
+            <div className="field">
+              <label htmlFor="escore" className="field-label">Escore de condição corporal</label>
+              <input
+                id="escore"
+                type="number"
+                inputMode="decimal"
+                min={1}
+                max={9}
+                step={0.5}
+                value={form.bcs}
+                onChange={(e) => setForm({ ...form, bcs: e.target.value })}
+                aria-invalid={Boolean(bcsError)}
+                aria-describedby="escore-ajuda escore-erro"
+              />
+              <span id="escore-ajuda" className="field-hint">
+                De 1 (muito magro) a 9 (muito gordo). Opcional.
+              </span>
+              {bcsError && <span id="escore-erro" className="field-error">{bcsError}</span>}
+            </div>
+            <div className="btn-row">
+              <button type="button" className="btn btn-secondary" onClick={closeForm}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? "Salvando…" : "Salvar animal"}
+              </button>
+            </div>
           </div>
+        </form>
+      )}
+
+      {animals.length > 6 && (
+        <div className="field" style={{ marginBottom: 12 }}>
+          <label htmlFor="busca" className="field-label">Buscar animal</label>
+          <input
+            id="busca"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Brinco, raça ou categoria"
+          />
         </div>
       )}
 
-      <div style={{ display: "grid", gap: 8 }}>
-        {animals.map((a) => (
-          <div key={a.id} className="card" style={{ padding: 12, marginBottom: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <strong>#{a.ear_tag}</strong>
-              <span className="badge badge-ok">{CATEGORY_LABELS[a.category ?? ""] ?? a.category ?? "sem categoria"}</span>
+      <ul style={{ display: "grid", gap: 8, listStyle: "none", padding: 0, margin: 0 }} aria-label="Animais cadastrados">
+        {visible.map((a) => (
+          <li key={a.id} className="card" style={{ padding: 12, marginBottom: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <strong>Brinco {a.ear_tag}</strong>
+              <span className="badge badge-ok">{CATEGORY_LABELS[a.category ?? ""] ?? a.category ?? "Sem categoria"}</span>
             </div>
-            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>
+            <div className="small muted" style={{ marginTop: 4 }}>
               {[a.breed, SEX_LABELS[a.sex ?? ""] ?? a.sex, a.age_months ? `${a.age_months} meses` : null]
                 .filter(Boolean)
                 .join(" · ") || "Sem detalhes"}
             </div>
-          </div>
+          </li>
         ))}
-        {animals.length === 0 && (
-          <div className="card" style={{ textAlign: "center", color: "var(--text-muted)" }}>
-            Nenhum animal cadastrado ainda. Toque em “+ Novo”.
-          </div>
-        )}
-      </div>
+      </ul>
+      {animals.length === 0 && (
+        <div className="card muted" style={{ textAlign: "center" }}>
+          Nenhum animal cadastrado ainda. Toque em “+ Cadastrar”.
+        </div>
+      )}
+      {animals.length > 0 && visible.length === 0 && (
+        <p className="card muted" role="status">
+          Nenhum animal encontrado para “{query}”.
+        </p>
+      )}
     </div>
   );
 }

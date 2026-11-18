@@ -1,6 +1,6 @@
-# Gado Peso — weighing cattle without a scale
+# PesoVivo — cattle weighing from images, no scale needed
 
-[![CI](https://github.com/Papacosta/gado-peso/actions/workflows/ci.yml/badge.svg)](https://github.com/Papacosta/gado-peso/actions/workflows/ci.yml)
+[![CI](https://github.com/Papacosta/pesovivo/actions/workflows/ci.yml/badge.svg)](https://github.com/Papacosta/pesovivo/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > 🇧🇷 [Versão em português (full documentation)](README.md)
@@ -39,6 +39,10 @@ password-protected HTTPS link.
   **idempotent** and nothing is duplicated when connectivity returns.
 - **Phone sensors:** tilt, GPS, ambient light and depth are stored with each photo (Postgres
   JSONB). Quality warnings flag problems instead of blocking the user.
+- **Usability and accessibility:** the UI was reviewed against Nielsen's 10 heuristics and
+  WCAG 2.1 AA. It has sufficient contrast, zoom enabled, labels on every field, a visible
+  focus indicator, screen-reader announcements, clear validation messages and a warning
+  before unsaved photos are lost.
 - **Infrastructure:**
   - Docker Compose runs Postgres, FastAPI and nginx over HTTPS.
   - Alembic handles migrations, and nginx handles authentication.

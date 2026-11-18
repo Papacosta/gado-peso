@@ -11,7 +11,7 @@ if [ -n "$APP_PASSWORD" ]; then
   chmod 640 /etc/nginx/htpasswd
   chown root:nginx /etc/nginx/htpasswd 2>/dev/null || true
   cat > "$AUTH_INC" <<CONF
-auth_basic "Gado Peso";
+auth_basic "PesoVivo";
 auth_basic_user_file /etc/nginx/htpasswd;
 CONF
   echo "[auth] senha de acesso ativada para o usuario '$USER_NAME'"

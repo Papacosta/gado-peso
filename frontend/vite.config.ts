@@ -9,13 +9,13 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
-        name: "Gado Peso",
-        short_name: "GadoPeso",
-        description: "Estimativa de peso de bovinos por foto (câmera fixa)",
+        name: "PesoVivo — Pesagem de bovinos por imagem",
+        short_name: "PesoVivo",
+        lang: "pt-BR",
+        description: "Estimativa do peso vivo de bovinos por foto, com o celular em ponto fixo.",
         theme_color: "#2e7d32",
         background_color: "#f1f8e9",
         display: "standalone",
-        orientation: "portrait-primary",
         scope: "/",
         start_url: "/",
         icons: [

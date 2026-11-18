@@ -20,7 +20,7 @@ from .routers import (
 settings.ensure_dirs()
 
 app = FastAPI(
-    title="Gado Peso API",
+    title="PesoVivo API",
     version="0.1.0",
     description=(
         "API para coleta padronizada de fotos de bovinos (Fase 1) e "

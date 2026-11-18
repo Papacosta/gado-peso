@@ -1,6 +1,6 @@
-# Gado Peso — pesar gado sem balança
+# PesoVivo — pesagem de bovinos por imagem, sem balança
 
-[![CI](https://github.com/Papacosta/gado-peso/actions/workflows/ci.yml/badge.svg)](https://github.com/Papacosta/gado-peso/actions/workflows/ci.yml)
+[![CI](https://github.com/Papacosta/pesovivo/actions/workflows/ci.yml/badge.svg)](https://github.com/Papacosta/pesovivo/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-TypeScript-61DAFB?logo=react&logoColor=black)
@@ -37,6 +37,9 @@ roda num Mac com Docker e é acessado pelo celular de qualquer lugar por um link
   **idempotentes** (nada duplica quando a internet volta).
 - **Sensores do celular:** inclinação, GPS, luz e profundidade gravados por foto (JSONB), com
   avisos de qualidade em vez de bloquear o uso.
+- **Usabilidade e acessibilidade:** interface revisada pelas 10 heurísticas de Nielsen e
+  WCAG 2.1 AA: contraste adequado, zoom liberado, rótulos em todos os campos, foco visível,
+  anúncios para leitores de tela, validação com mensagem clara e aviso antes de perder fotos.
 - **Infra:** Docker Compose (Postgres + FastAPI + nginx/HTTPS), migrações Alembic, autenticação
   no nginx, link público fixo via Tailscale Funnel e CI com GitHub Actions.
 
@@ -306,7 +309,7 @@ sem reescrever o app.
 ## 4. Arquitetura
 
 ```
-gado-peso/
+pesovivo/
 ├── docker-compose.yml         # Postgres + backend + frontend (HTTPS)
 ├── data/
 │   ├── photos/                # fotos em disco (caminho relativo no banco)
@@ -490,7 +493,7 @@ local seguro:
 
 ```bash
 # 1) Copiar a pasta de fotos (e manter a estrutura data/photos)
-rsync -avzh --progress data/photos/ /caminho/externo/backup/gado-peso-photos/
+rsync -avzh --progress data/photos/ /caminho/externo/backup/pesovivo-photos/
 
 # 2) Gerar dump do banco PostgreSQL (via docker compose)
 docker compose exec db pg_dump -U gado -d gado -Fc > backup-gado-$(date +%F).dump

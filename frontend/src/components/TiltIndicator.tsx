@@ -9,8 +9,8 @@ interface TiltIndicatorProps {
 export default function TiltIndicator({ tiltDeg, beta, gamma, maxTilt }: TiltIndicatorProps) {
   if (tiltDeg === null) {
     return (
-      <div className="card" style={{ padding: 10, marginBottom: 8, fontSize: "0.8rem", color: "var(--text-muted)" }}>
-        Nível indisponível (sensor de orientação não suportado). O disparo não será bloqueado.
+      <div className="card small muted" style={{ padding: 10, marginBottom: 8 }}>
+        Nível do celular indisponível neste aparelho. Confira o tripé no olho; a foto não será bloqueada.
       </div>
     );
   }
@@ -24,9 +24,9 @@ export default function TiltIndicator({ tiltDeg, beta, gamma, maxTilt }: TiltInd
   return (
     <div className="card" style={{ padding: 10, marginBottom: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>Nível do celular</div>
+        <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>Nível do celular</div>
         <div style={{ fontWeight: 700, color, fontSize: "0.9rem" }}>
-          {tiltDeg.toFixed(1)}° {ok ? "✓" : "✗"}
+          {tiltDeg.toFixed(1)}° {ok ? "✓ ok" : "✗ torto"}
         </div>
       </div>
       <div
@@ -39,7 +39,8 @@ export default function TiltIndicator({ tiltDeg, beta, gamma, maxTilt }: TiltInd
           border: "1px solid var(--border)",
           overflow: "hidden",
         }}
-        aria-label={`Inclinação ${tiltDeg.toFixed(1)} graus, limite ${maxTilt}`}
+        role="img"
+        aria-label={`Nível de bolha: inclinação ${tiltDeg.toFixed(1)} graus, limite ${maxTilt} graus`}
       >
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ width: "60%", height: 2, background: "var(--border)" }} />
@@ -60,8 +61,8 @@ export default function TiltIndicator({ tiltDeg, beta, gamma, maxTilt }: TiltInd
           }}
         />
       </div>
-      <div style={{ fontSize: "0.68rem", color: "var(--text-muted)", marginTop: 4 }}>
-        Tolerância: {maxTilt}°. {ok ? "Pode fotografar." : "Endireite o tripé antes de disparar."}
+      <div className="small muted" style={{ marginTop: 4 }}>
+        Limite: {maxTilt}°. {ok ? "Nivelado, pode fotografar." : "Endireite o tripé antes de fotografar."}
       </div>
     </div>
   );

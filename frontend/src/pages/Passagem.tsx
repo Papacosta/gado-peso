@@ -10,6 +10,8 @@ import { quickQuality } from "../lib/imageQuality";
 import { cacheGet, cacheSet, enqueue, localSettings, onQueueChange, queueItems, syncQueue } from "../lib/queue";
 import { formatDateTime, uuid } from "../lib/format";
 import { showToast } from "../lib/toast";
+import { setUnsavedWork } from "../lib/navGuard";
+import PageHeader from "../components/PageHeader";
 import {
   DEFAULT_DETECTOR_CONFIG,
   PassageTracker,
@@ -133,6 +135,14 @@ export default function Passagem() {
     };
   }, []);
 
+  // Sair da tela com a captura ligada interrompe a pesagem: pergunta antes.
+  useEffect(() => {
+    setUnsavedWork(
+      running ? "A pesagem automática está ligada. Sair desta tela para a captura e descarta o animal que estiver passando." : null
+    );
+    return () => setUnsavedWork(null);
+  }, [running]);
+
   // ---------------- tela sempre ligada ----------------
   async function acquireWakeLock() {
     const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<WakeLockSentinelLike> } };
@@ -192,7 +202,7 @@ export default function Passagem() {
       setWarning(null);
       if (navigator.onLine) {
         const res = await syncQueue();
-        if (res.errors.length) showToast(`Passagem salva no celular. ${res.errors[0]}`, "warning");
+        if (res.errors.length) showToast("Passagem salva no celular. Será enviada quando a conexão voltar.", "info");
         refreshHistory();
       }
     },
@@ -325,7 +335,8 @@ export default function Passagem() {
   // ---------------- ações ----------------
   function start() {
     if (!capturePointId) {
-      showToast("Escolha o ponto de captura (posição fixa da câmera).", "warning");
+      showToast("Escolha o ponto de captura antes de iniciar (é a posição fixa do celular).", "warning");
+      document.getElementById("ps-ponto")?.focus();
       return;
     }
     localSettings.capturePointId = capturePointId;
@@ -334,7 +345,7 @@ export default function Passagem() {
     setRunning(true);
     setStatus("aguardando");
     void acquireWakeLock();
-    showToast("Calibrando com o corredor vazio…", "info");
+    showToast("Aprendendo o fundo com o corredor vazio… Pode soltar os animais.", "info");
   }
 
   function stop() {
@@ -400,51 +411,73 @@ export default function Passagem() {
   const statusText: Record<Status, string> = {
     parado: "Parado",
     aguardando: "Aguardando animal",
-    presente: `Animal no quadro · ${frameCount} foto(s)`,
+    presente: `Animal passando · ${frameCount} foto(s)`,
   };
-  const statusColor = status === "presente" ? "var(--accent)" : status === "aguardando" ? "var(--success)" : "var(--text-muted)";
+  const statusColor = status === "presente" ? "var(--accent)" : status === "aguardando" ? "#66bb6a" : "#bdbdbd";
   const pendingCount = history.filter((p) => p.status === "pending_model").length;
 
   return (
     <div>
-      <div className="card" style={{ marginTop: 8 }}>
-        <div className="card-title">Modo passagem</div>
-        <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: "6px 0 10px" }}>
-          Celular fixo no tripé, de lado para o corredor. Com o corredor <strong>vazio</strong>, toque em Iniciar:
-          o app aprende o fundo e fotografa sozinho cada animal que passar.
-        </p>
-        <label style={{ display: "block", fontSize: "0.85rem" }}>
-          Ponto de captura
-          <select
-            value={capturePointId}
-            onChange={(e) => setCapturePointId(e.target.value)}
-            disabled={running}
-            style={{ marginTop: 4 }}
-          >
-            <option value="">Selecione…</option>
-            {points.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} · {p.distance_cm} cm / {p.camera_height_cm} cm
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: "block", fontSize: "0.85rem", marginTop: 8 }}>
-          Lote (opcional)
-          <input type="text" value={lot} onChange={(e) => setLot(e.target.value)} placeholder="Ex.: Lote 3 – engorda" style={{ marginTop: 4 }} />
-        </label>
-      </div>
+      <PageHeader
+        title="Pesar animais"
+        description="Deixe o celular fixo no tripé, de lado para o corredor. O app fotografa sozinho cada animal que passar e estima o peso."
+      />
+
+      <section className="card" aria-labelledby="ps-config">
+        <h2 id="ps-config" className="card-title" style={{ marginTop: 0 }}>1. Antes de começar</h2>
+        <div className="form-row">
+          <div className="field">
+            <label htmlFor="ps-ponto" className="field-label">
+              Ponto de captura <span className="req">*</span>
+            </label>
+            {points.length === 0 ? (
+              <p className="small" style={{ margin: 0 }}>
+                Nenhum ponto cadastrado. <a href="#/pontos">Cadastre o ponto fixo da câmera</a> primeiro.
+              </p>
+            ) : (
+              <select
+                id="ps-ponto"
+                required
+                value={capturePointId}
+                onChange={(e) => setCapturePointId(e.target.value)}
+                disabled={running}
+                aria-describedby={running ? "ps-ponto-ajuda" : undefined}
+              >
+                <option value="">Selecione o ponto…</option>
+                {points.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} · {p.distance_cm} cm / {p.camera_height_cm} cm
+                  </option>
+                ))}
+              </select>
+            )}
+            {running && (
+              <span id="ps-ponto-ajuda" className="field-hint">
+                Para trocar o ponto, toque em Parar.
+              </span>
+            )}
+          </div>
+          <div className="field">
+            <label htmlFor="ps-lote" className="field-label">Lote</label>
+            <input id="ps-lote" type="text" value={lot} onChange={(e) => setLot(e.target.value)} placeholder="Ex.: Lote 3 – engorda" aria-describedby="ps-lote-ajuda" />
+            <span id="ps-lote-ajuda" className="field-hint">Opcional. Ajuda a separar os resultados.</span>
+          </div>
+        </div>
+      </section>
 
       {cameraError && (
-        <div className="card" style={{ color: "var(--danger)" }}>
-          <strong>Erro:</strong> {cameraError}
+        <div className="alert alert-error" role="alert">
+          <strong>Não foi possível usar a câmera.</strong>
+          {cameraError}
         </div>
       )}
 
+      <h2 className="card-title" style={{ margin: "4px 0 8px" }}>2. Captura</h2>
       <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: "#000" }}>
-        <video ref={videoRef} playsInline muted style={{ width: "100%", display: "block", minHeight: 220 }} />
+        <video ref={videoRef} playsInline muted aria-label="Imagem ao vivo do corredor" style={{ width: "100%", display: "block", minHeight: 220 }} />
         <canvas
           ref={overlayRef}
+          aria-hidden="true"
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
         />
         <div
@@ -452,140 +485,157 @@ export default function Passagem() {
             position: "absolute",
             top: 8,
             left: 8,
-            padding: "4px 10px",
+            padding: "6px 12px",
             borderRadius: 999,
-            background: "rgba(0,0,0,0.6)",
+            background: "rgba(0,0,0,0.7)",
             color: "#fff",
-            fontSize: "0.8rem",
+            fontSize: "0.9rem",
+            fontWeight: 600,
             display: "flex",
             alignItems: "center",
-            gap: 6,
+            gap: 8,
           }}
         >
-          <span style={{ width: 10, height: 10, borderRadius: "50%", background: statusColor, display: "inline-block" }} />
+          <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: "50%", background: statusColor, display: "inline-block" }} />
           {statusText[status]}
         </div>
         {running && metrics && (
-          <div style={{ position: "absolute", bottom: 6, right: 8, color: "rgba(255,255,255,0.8)", fontSize: "0.7rem" }}>
-            ocupação {(metrics.foreground * 100).toFixed(0)}% · mov. {metrics.motion.toFixed(1)}
+          <div aria-hidden="true" style={{ position: "absolute", bottom: 6, right: 8, color: "rgba(255,255,255,0.85)", fontSize: "0.75rem" }}>
+            ocupação {(metrics.foreground * 100).toFixed(0)}% · movimento {metrics.motion.toFixed(1)}
           </div>
         )}
       </div>
+      {/* Anuncia só a troca de estado (não cada foto) para leitores de tela. */}
+      <p className="sr-only" aria-live="polite">
+        {status === "presente" ? "Animal passando." : status === "aguardando" ? "Aguardando animal." : "Captura parada."}
+      </p>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <div className="btn-row" style={{ marginTop: 10 }}>
         {!running ? (
-          <button className="btn btn-primary" style={{ flex: 1, minHeight: 56 }} onClick={start} disabled={!cameraReady}>
-            ▶ Iniciar (corredor vazio)
+          <button type="button" className="btn btn-primary btn-lg" style={{ gridColumn: "1 / -1" }} onClick={start} disabled={!cameraReady}>
+            ▶ Iniciar (com o corredor vazio)
           </button>
         ) : (
           <>
-            <button className="btn btn-danger" style={{ flex: 1, minHeight: 56 }} onClick={stop}>
-              ■ Parar
+            <button type="button" className="btn btn-danger btn-lg" style={{ gridColumn: "1 / -1" }} onClick={stop}>
+              ■ Parar captura
             </button>
-            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={calibrate}>
-              Calibrar fundo
+            <button type="button" className="btn btn-secondary" onClick={calibrate}>
+              Recalibrar fundo
             </button>
-            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={nextAnimal} disabled={status !== "presente"}>
-              Próximo animal
+            <button type="button" className="btn btn-secondary" onClick={nextAnimal} disabled={status !== "presente"}>
+              Separar próximo animal
             </button>
           </>
         )}
       </div>
+      <p className="small muted" style={{ margin: "6px 0 0" }}>
+        {!cameraReady && !cameraError
+          ? "Abrindo a câmera…"
+          : running
+            ? "Use “Separar próximo animal” quando dois animais passarem encostados."
+            : "O app aprende como é o corredor vazio e depois detecta cada animal sozinho."}
+      </p>
 
       {warning && (
-        <div className="card" style={{ marginTop: 10, color: "var(--warning)", fontSize: "0.82rem" }}>
+        <div className="alert alert-warn" style={{ marginTop: 10 }} role="status">
+          <strong>Atenção</strong>
           {warning}
         </div>
       )}
 
-      <div className="card" style={{ marginTop: 10 }}>
-        <div className="card-title">Brinco (opcional)</div>
-        <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>
-          Digite o número ou use um leitor de brinco eletrônico Bluetooth (modo teclado): a leitura vai para o animal
-          que está no quadro, ou para o próximo que entrar.
-        </p>
+      <section className="card" style={{ marginTop: 12 }} aria-labelledby="ps-brinco">
+        <h2 id="ps-brinco" className="card-title" style={{ marginTop: 0 }}>Brinco do animal (opcional)</h2>
         <form
           onSubmit={(e) => {
             e.preventDefault();
             submitTag();
           }}
-          style={{ display: "flex", gap: 8 }}
+          style={{ display: "flex", gap: 8, alignItems: "flex-end" }}
         >
-          <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Brinco / RFID" />
-          <button className="btn btn-secondary" type="submit">
-            OK
+          <div className="field" style={{ flex: 1 }}>
+            <label htmlFor="ps-tag" className="field-label sr-only">Número do brinco</label>
+            <input
+              id="ps-tag"
+              type="text"
+              autoComplete="off"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              placeholder="Número do brinco"
+              aria-describedby="ps-tag-ajuda"
+            />
+          </div>
+          <button className="btn btn-secondary" type="submit" disabled={!tagInput.trim()}>
+            Registrar
           </button>
         </form>
+        <p id="ps-tag-ajuda" className="small muted" style={{ margin: "6px 0 0" }}>
+          Digite ou use um leitor de brinco eletrônico (Bluetooth). O número vai para o animal que está passando, ou para o
+          próximo que entrar.
+        </p>
         {(currentTag || pendingTag) && (
-          <div style={{ fontSize: "0.8rem", marginTop: 6 }}>
-            {currentTag && <span className="badge">No quadro: {currentTag}</span>}{" "}
-            {pendingTag && <span className="badge">Próximo: {pendingTag}</span>}
+          <div className="small" style={{ marginTop: 6 }} aria-live="polite">
+            {currentTag && <span className="badge badge-ok">Passando agora: {currentTag}</span>}{" "}
+            {pendingTag && <span className="badge badge-neutral">Próximo: {pendingTag}</span>}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="card" style={{ marginTop: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div className="card-title">Passagens</div>
-          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{sessionCount} nesta sessão</span>
+      <section className="card" style={{ marginTop: 10 }} aria-labelledby="ps-result">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <h2 id="ps-result" className="card-title" style={{ margin: 0 }}>3. Resultados</h2>
+          <span className="small muted" aria-live="polite">{sessionCount} nesta sessão</span>
         </div>
         {pendingCount > 0 && (
-          <button className="btn btn-secondary" style={{ width: "100%", marginTop: 8 }} onClick={reestimate}>
-            Estimar {pendingCount} passagem(ns) pendente(s)
+          <button type="button" className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={reestimate}>
+            Calcular peso de {pendingCount} passagem(ns) sem estimativa
           </button>
         )}
-        <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0" }}>
+        <ul className="list">
           {queuedPassages.map((q) => (
-            <li key={q.id} style={rowStyle}>
+            <li key={q.id}>
               <div>
-                <div style={{ fontWeight: 600 }}>Na fila do celular</div>
+                <div style={{ fontWeight: 600 }}>Salvo no celular</div>
                 <div style={subStyle}>
-                  {formatDateTime(q.startedAt)} · {q.earTag ?? "sem brinco"} · {q.frames} foto(s)
+                  {formatDateTime(q.startedAt)} · {q.earTag ? `brinco ${q.earTag}` : "sem brinco"} · {q.frames} foto(s)
                 </div>
               </div>
-              <span className="badge">aguardando envio</span>
+              <span className="badge badge-neutral">aguardando envio</span>
             </li>
           ))}
           {history.map((p) => (
-            <li key={p.id} style={rowStyle}>
+            <li key={p.id}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>
-                  {p.weight_kg !== null ? `${p.weight_kg.toFixed(0)} kg ± ${(p.interval_half_width_kg ?? 0).toFixed(0)}` : "—"}
+                <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>
+                  {p.weight_kg !== null ? `${p.weight_kg.toFixed(0)} kg ± ${(p.interval_half_width_kg ?? 0).toFixed(0)}` : "Peso ainda não calculado"}
                 </div>
                 <div style={subStyle}>
-                  {formatDateTime(p.started_at)} · {p.ear_tag ?? "sem brinco"}
-                  {p.lot ? ` · ${p.lot}` : ""} · {p.n_frames_used}/{p.n_frames} fotos
+                  {formatDateTime(p.started_at)} · {p.ear_tag ? `brinco ${p.ear_tag}` : "sem brinco"}
+                  {p.lot ? ` · ${p.lot}` : ""} · {p.n_frames_used} de {p.n_frames} fotos usadas
                 </div>
                 {p.message && <div style={{ ...subStyle, color: "var(--warning)" }}>{p.message}</div>}
               </div>
-              <span className="badge">{STATUS_LABEL[p.status] ?? p.status}</span>
+              <span className={`badge ${p.status === "estimated" ? "badge-ok" : p.status === "failed" ? "badge-danger" : "badge-neutral"}`}>
+                {STATUS_LABEL[p.status] ?? p.status}
+              </span>
             </li>
           ))}
           {history.length === 0 && queuedPassages.length === 0 && (
-            <li style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Nenhuma passagem registrada ainda.</li>
+            <li className="small muted">Nenhum animal pesado ainda.</li>
           )}
         </ul>
-      </div>
+      </section>
     </div>
   );
 }
 
 const STATUS_LABEL: Record<string, string> = {
   estimated: "estimado",
-  pending_model: "sem modelo",
-  failed: "sem estimativa",
+  pending_model: "aguardando modelo",
+  failed: "não foi possível",
 };
 
-const rowStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 8,
-  padding: "8px 0",
-  borderBottom: "1px solid var(--border)",
-};
-
-const subStyle: CSSProperties = { fontSize: "0.75rem", color: "var(--text-muted)" };
+const subStyle: CSSProperties = { fontSize: "0.85rem", color: "var(--text-muted)" };
 
 function emptyMetrics(): FrameMetrics {
   return { foreground: 0, motion: 0, box: null, fullyInside: false, offCenter: 1 };

@@ -3,7 +3,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { QueueItem } from "../types";
 import { api } from "../api";
 
-interface GadoDB extends DBSchema {
+interface AppDB extends DBSchema {
   queue: {
     key: string;
     value: QueueItem;
@@ -11,11 +11,14 @@ interface GadoDB extends DBSchema {
   };
 }
 
-let dbPromise: Promise<IDBPDatabase<GadoDB>> | null = null;
+let dbPromise: Promise<IDBPDatabase<AppDB>> | null = null;
 
-function getDB(): Promise<IDBPDatabase<GadoDB>> {
+function getDB(): Promise<IDBPDatabase<AppDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<GadoDB>("gado-peso", 1, {
+    // Nome interno do armazenamento local: NÃO renomear (o nome antigo do app
+    // continua aqui de propósito). Mudar apagaria a fila offline e os
+    // cadastros que já estão salvos nos celulares.
+    dbPromise = openDB<AppDB>("gado-peso", 1, {
       upgrade(db) {
         const store = db.createObjectStore("queue", { keyPath: "id" });
         store.createIndex("by-createdAt", "createdAt");
@@ -130,7 +133,9 @@ function notify() {
 }
 
 // ---------------------------------------------------------------------------
-// Cache local (localStorage) para cadastros usados offline
+// Cache local (localStorage) para cadastros usados offline.
+// O prefixo "gado:" é interno e fica assim de propósito: trocar faria os
+// celulares perderem pontos/animais em cache e o ponto padrão escolhido.
 // ---------------------------------------------------------------------------
 export function cacheSet<T>(key: string, value: T): void {
   try {

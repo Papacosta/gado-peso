@@ -1,3 +1,7 @@
+# Projeto PesoVivo. O nome fixo evita que o Docker crie um banco vazio se a
+# pasta do projeto for renomeada ou clonada com outro nome.
+name: pesovivo
+
 services:
   db:
     image: postgres:16-alpine
@@ -72,7 +76,8 @@ services:
     depends_on:
       - frontend
 
-  # Link FIXO e público (https://gado-peso.<sua-rede>.ts.net) via Tailscale
+  # Link FIXO e público via Tailscale. O endereço vem do hostname abaixo
+  # (https://<hostname>.<sua-rede>.ts.net); trocar o hostname muda o link.
   # Funnel, gratuito. Requer conta Tailscale e TS_AUTHKEY no .env.
   # Suba com:  docker compose --profile fixo up -d
   # Na 1ª vez, ligue o Funnel (fica salvo no volume tsstate):
@@ -102,6 +107,10 @@ services:
     depends_on:
       - frontend
 
+# Os volumes guardam o nome antigo (gado-peso_*) de propósito: é onde já
+# estão o banco e a identidade do link fixo. Não renomear sem migrar os dados.
 volumes:
   pgdata:
+    name: gado-peso_pgdata
   tsstate:
+    name: gado-peso_tsstate

@@ -151,18 +151,30 @@ export default function CameraView({ minPhotos, maxPhotos, photos, onCapture, on
     });
   }, [onCapture]);
 
+  const blockReason = !ready
+    ? "Aguarde a câmera abrir."
+    : photos.length >= maxPhotos
+      ? `Limite de ${maxPhotos} fotos atingido. Remova uma para tirar outra.`
+      : !allChecked
+        ? `Marque os ${checked.filter((c) => !c).length} item(ns) que faltam no checklist.`
+        : tiltBlocked && !override
+          ? `Celular inclinado (${tilt?.toFixed(1)}°, limite ${maxTilt}°). Endireite o tripé.`
+          : null;
+
   return (
     <div>
-      {!ready && !error && <div className="card">Abrindo câmera…</div>}
-      <button className="btn btn-secondary" style={{ width: "100%", marginBottom: 8 }} onClick={enableSensors}>
-        {sensorsOn ? "↻ Reativar sensores" : "📱 Ativar nível e sensores do celular"}
-      </button>
+      {!ready && !error && (
+        <p className="card" role="status">
+          Abrindo câmera…
+        </p>
+      )}
       {error && (
-        <div className="card" style={{ color: "var(--danger)" }}>
-          <strong>Erro:</strong> {error}
-          <div style={{ fontSize: "0.8rem", marginTop: 6 }}>
-            A câmera do navegador exige HTTPS ou localhost. Cadastre os animais e pesagens com fotos
-            de um aparelho que permita câmera, ou use o app instalado via PWA.
+        <div className="alert alert-error" role="alert">
+          <strong>Não foi possível usar a câmera.</strong>
+          {error}
+          <div className="small" style={{ marginTop: 6 }}>
+            O navegador só libera a câmera em sites seguros (endereço com https). Se o problema continuar,
+            reabra o app pelo ícone da tela inicial.
           </div>
         </div>
       )}
@@ -172,9 +184,10 @@ export default function CameraView({ minPhotos, maxPhotos, photos, onCapture, on
           ref={videoRef}
           playsInline
           muted
+          aria-label="Imagem ao vivo da câmera"
           style={{ width: "100%", display: "block", minHeight: 260 }}
         />
-        {/* Overlay de enquadramento: guias laterais e silhueta central */}
+        {/* Guia de enquadramento: bordas, linhas centrais e silhueta do animal */}
         <svg
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
@@ -184,18 +197,22 @@ export default function CameraView({ minPhotos, maxPhotos, photos, onCapture, on
           <rect x="1" y="1" width="98" height="98" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" strokeDasharray="4 3" />
           <line x1="50" y1="1" x2="50" y2="83" stroke="rgba(255,255,255,0.35)" strokeWidth="0.4" strokeDasharray="3 3" />
           <line x1="6" y1="43" x2="94" y2="43" stroke="rgba(255,255,255,0.35)" strokeWidth="0.4" strokeDasharray="3 3" />
-          {/* Silhueta estilizada de cabeça/tronco/pernas (guia de escala) */}
           <ellipse cx="50" cy="55" rx="30" ry="13" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" />
           <ellipse cx="18" cy="50" rx="5" ry="9" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" />
           <line x1="34" y1="66" x2="36" y2="84" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" />
           <line x1="66" y1="66" x2="64" y2="84" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" />
-          <text x="50" y="93" fontSize="3.2" fill="rgba(255,255,255,0.8)" textAnchor="middle">
-            corpo centralizado · zoom 1x · distância fixa
-          </text>
         </svg>
       </div>
+      <p className="small muted" style={{ margin: "6px 0 8px" }}>
+        Encaixe o animal inteiro de lado, dentro da silhueta, sem usar zoom.
+      </p>
 
       <TiltIndicator tiltDeg={tilt} beta={beta} gamma={gamma} maxTilt={maxTilt} />
+      {tilt === null && !sensorsOn && (
+        <button type="button" className="btn btn-secondary btn-block" style={{ marginBottom: 8 }} onClick={enableSensors}>
+          Ativar o nível do celular
+        </button>
+      )}
 
       <Checklist
         checked={checked}
@@ -206,97 +223,95 @@ export default function CameraView({ minPhotos, maxPhotos, photos, onCapture, on
             return next;
           });
         }}
+        onCheckAll={() => setChecked(DEFAULT_CHECKLIST.map(() => true))}
       />
 
-      <SensorChips snapshot={lastSnapshot} />
-      {cameraInfo && (
-        <details className="card" style={{ padding: 10 }}>
-          <summary style={{ fontSize: "0.85rem", fontWeight: 600 }}>Detalhes da câmera</summary>
-          <pre style={{ fontSize: "0.65rem", whiteSpace: "pre-wrap", margin: 0 }}>
-            {JSON.stringify(cameraInfo, null, 2)}
-          </pre>
-        </details>
-      )}
-      <div className="card" style={{ fontSize: "0.75rem", color: depth.supported ? "var(--success)" : "var(--text-muted)", padding: 10 }}>
-        Profundidade (WebXR): {depth.supported ? "suportada — use o botão AR para medir a distância" : depth.reason || "indisponível"}
-      </div>
       {lastQuality && (
-        <div
-          className="card"
-          style={{
-            padding: 10,
-            fontSize: "0.78rem",
-            color: lastQuality.warning ? "var(--warning)" : "var(--success)",
-          }}
-        >
-          {lastQuality.warning
-            ? lastQuality.warning
-            : "Qualidade aparentemente ok (nitidez e luz). Enviei as leituras junto com a foto."}
+        <div className={`alert ${lastQuality.warning ? "alert-warn" : ""}`} role="status">
+          <strong>{lastQuality.warning ? "Confira a última foto" : "Última foto ok"}</strong>
+          {lastQuality.warning ?? "Nitidez e iluminação parecem boas."}
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <button
-          className="btn btn-primary"
-          onClick={handleCapture}
-          disabled={!canCapture}
-          style={{ flex: 1, minHeight: 56, fontSize: "1.1rem" }}
-        >
-          📷 Capturar ({photos.length}/{maxPhotos})
+      <button
+        type="button"
+        className="btn btn-primary btn-block btn-lg"
+        onClick={handleCapture}
+        disabled={!canCapture}
+        aria-describedby="captura-motivo"
+      >
+        📷 Tirar foto ({photos.length} de {maxPhotos})
+      </button>
+      <p id="captura-motivo" className="small" style={{ margin: "6px 0 0", color: blockReason ? "var(--warning)" : "var(--text-muted)" }}>
+        {blockReason ?? "Pronto para fotografar."}
+      </p>
+      {tiltBlocked && !override && (
+        <button type="button" className="btn btn-warning btn-block" style={{ marginTop: 8 }} onClick={() => setOverride(true)}>
+          Fotografar mesmo inclinado
         </button>
-        {tiltBlocked && !override && (
-          <button
-            className="btn btn-warning"
-            onClick={() => setOverride(true)}
-            title="Disparar mesmo com inclinação"
-            style={{ minWidth: 56 }}
-          >
-            ⚠
-          </button>
-        )}
-      </div>
+      )}
 
       {photos.length > 0 && (
-        <div className="card" style={{ marginTop: 12 }}>
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
-            {photos.map((p) => (
-              <div key={p.id} style={{ position: "relative", flexShrink: 0 }}>
+        <section className="card" style={{ marginTop: 12 }} aria-label="Fotos tiradas">
+          <ul style={{ display: "flex", gap: 12, overflowX: "auto", padding: "8px 4px", margin: 0, listStyle: "none" }}>
+            {photos.map((p, i) => (
+              <li key={p.id} style={{ position: "relative", flexShrink: 0 }}>
                 <img
                   src={p.previewUrl}
-                  alt={`Foto ${p.id}`}
-                  style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8 }}
+                  alt={`Foto ${i + 1}`}
+                  style={{ width: 88, height: 88, objectFit: "cover", borderRadius: 8, display: "block" }}
                 />
                 <button
+                  type="button"
                   onClick={() => {
                     onRemovePhoto(p.id);
                     URL.revokeObjectURL(p.previewUrl);
                   }}
                   style={{
                     position: "absolute",
-                    top: -6,
-                    right: -6,
+                    top: -10,
+                    right: -10,
                     borderRadius: "50%",
-                    width: 24,
-                    height: 24,
+                    width: 44,
+                    height: 44,
                     background: "var(--danger)",
                     color: "#fff",
-                    border: "2px solid #fff",
+                    border: "3px solid #fff",
+                    fontSize: "1rem",
+                    cursor: "pointer",
                   }}
-                  aria-label="Remover foto"
+                  aria-label={`Remover foto ${i + 1}`}
                 >
                   ✕
                 </button>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
           {photos.length < minPhotos && (
-            <div style={{ fontSize: "0.8rem", color: "var(--warning)" }}>
-              O protocolo pede de {minPhotos} a {maxPhotos} fotos por sessão. Capture mais{" "}
-              {minPhotos - photos.length} foto(s).
-            </div>
+            <p className="small" style={{ color: "var(--warning)", margin: "4px 0 0" }}>
+              Tire de {minPhotos} a {maxPhotos} fotos. Faltam {minPhotos - photos.length}.
+            </p>
           )}
-        </div>
+        </section>
       )}
+
+      <details className="card" style={{ padding: "4px 12px", marginTop: 12 }}>
+        <summary className="small">Informações técnicas dos sensores</summary>
+        <SensorChips snapshot={lastSnapshot} />
+        <p className="small muted">
+          Profundidade (WebXR): {depth.supported ? "suportada neste aparelho" : depth.reason || "indisponível"}
+        </p>
+        {sensorsOn && (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={enableSensors}>
+            Reativar sensores
+          </button>
+        )}
+        {cameraInfo && (
+          <pre style={{ fontSize: "0.75rem", whiteSpace: "pre-wrap", margin: "8px 0" }}>
+            {JSON.stringify(cameraInfo, null, 2)}
+          </pre>
+        )}
+      </details>
     </div>
   );
 }

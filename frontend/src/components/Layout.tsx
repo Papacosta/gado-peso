@@ -1,19 +1,21 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { onQueueChange, queueCount, syncQueue } from "../lib/queue";
 import { showToast } from "../lib/toast";
+import { APP_NAME, APP_TAGLINE } from "../lib/brand";
 
 interface LayoutProps {
   route: string;
   children: ReactNode;
 }
 
-const NAV = [
-  { path: "/", label: "Início", icon: "home" },
-  { path: "/passagem", label: "Pesar", icon: "scale" },
-  { path: "/coletar", label: "Coletar", icon: "camera" },
-  { path: "/painel", label: "Painel", icon: "chart" },
-  { path: "/animais", label: "Animais", icon: "tag" },
-  { path: "/ajustes", label: "Ajustes", icon: "settings" },
+/** Navegação principal. `match` inclui telas filhas (ex.: Modelo fica em Painel). */
+export const NAV = [
+  { path: "/", label: "Início", icon: "home", match: ["/"] },
+  { path: "/passagem", label: "Pesar", icon: "scale", match: ["/passagem"] },
+  { path: "/coletar", label: "Coletar", icon: "camera", match: ["/coletar"] },
+  { path: "/painel", label: "Painel", icon: "chart", match: ["/painel", "/modelo"] },
+  { path: "/animais", label: "Animais", icon: "tag", match: ["/animais"] },
+  { path: "/ajustes", label: "Ajustes", icon: "settings", match: ["/ajustes", "/pontos"] },
 ];
 
 function Icon({ name }: { name: string }) {
@@ -68,6 +70,7 @@ function Icon({ name }: { name: string }) {
 export default function Layout({ route, children }: LayoutProps) {
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [online, setOnline] = useState(() => navigator.onLine);
 
   useEffect(() => {
     let mounted = true;
@@ -77,83 +80,111 @@ export default function Layout({ route, children }: LayoutProps) {
     refresh();
     const off = onQueueChange(refresh);
     const interval = window.setInterval(refresh, 15000);
-    const online = () => {
+    const goOnline = () => {
+      setOnline(true);
       void handleSync();
     };
-    window.addEventListener("online", online);
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
     return () => {
       mounted = false;
       off();
       window.clearInterval(interval);
-      window.removeEventListener("online", online);
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSync() {
     if (syncing) return;
+    if (!navigator.onLine) {
+      showToast("Sem internet. Os dados continuam salvos no celular e serão enviados quando a conexão voltar.", "info");
+      return;
+    }
     setSyncing(true);
     try {
       const result = await syncQueue();
-      if (result.synced > 0) showToast(`${result.synced} item(ns) sincronizado(s).`, "success");
+      if (result.synced > 0) showToast(`${result.synced} item(ns) enviado(s) ao servidor.`, "success");
+      else if (result.pending === 0) showToast("Tudo enviado. Nada aguardando.", "success");
       if (result.errors.length && result.pending > 0) {
-        showToast(`Fila pendente: ${result.errors[0]}`, "warning");
+        showToast(`Ainda há ${result.pending} item(ns) aguardando envio: ${result.errors[0]}`, "warning");
       }
     } finally {
       setSyncing(false);
     }
   }
 
+  const syncLabel = syncing ? "Enviando…" : pending > 0 ? `${pending} para enviar` : "Tudo enviado";
+
   return (
     <div>
+      <a className="skip-link" href="#conteudo" onClick={(e) => {
+        e.preventDefault();
+        document.getElementById("conteudo")?.focus();
+      }}>
+        Pular para o conteúdo
+      </a>
       <header
         style={{
           background: "var(--primary)",
           color: "#fff",
-          padding: "12px 16px",
+          padding: "10px 16px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: 12,
           position: "sticky",
           top: 0,
           zIndex: 50,
         }}
       >
-        <div>
-          <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>Gado Peso</div>
-          <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>câmera fixa · coleta padronizada</div>
+        <a href="#/" style={{ color: "#fff" }} aria-label={`${APP_NAME}, ir para o início`}>
+          <div style={{ fontWeight: 800, fontSize: "1.15rem", letterSpacing: 0.2 }}>{APP_NAME}</div>
+          <div style={{ fontSize: "0.78rem", opacity: 0.9 }}>{APP_TAGLINE}</div>
+        </a>
+        <div style={{ display: "grid", justifyItems: "end", gap: 4 }}>
+          <span className="conn" aria-live="polite">
+            <span className={`conn-dot ${online ? "" : "off"}`} aria-hidden="true" />
+            {online ? "Online" : "Sem internet"}
+          </span>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleSync}
+            disabled={syncing}
+            aria-label={`${syncLabel}. Toque para enviar agora.`}
+            style={{
+              background: pending > 0 ? "var(--accent)" : "rgba(255,255,255,0.18)",
+              color: pending > 0 ? "#212121" : "#fff",
+              padding: "6px 12px",
+              minHeight: 44,
+              fontSize: "0.85rem",
+            }}
+          >
+            {syncLabel}
+          </button>
         </div>
-        <button
-          className="btn"
-          onClick={handleSync}
-          disabled={syncing}
-          style={{
-            background: pending > 0 ? "var(--accent)" : "rgba(255,255,255,0.15)",
-            color: pending > 0 ? "#212121" : "#fff",
-            padding: "8px 12px",
-            minHeight: 40,
-            fontSize: "0.8rem",
-          }}
-          title="Sincronizar fila offline"
-        >
-          {syncing ? "Sincronizando…" : pending > 0 ? `${pending} na fila` : "Sincronizado"}
-        </button>
       </header>
 
-      <main>{children}</main>
+      <main id="conteudo" tabIndex={-1}>{children}</main>
 
-      <nav className="bottom-nav">
-        {NAV.map((item) => (
-          <a
-            key={item.path}
-            href={`#${item.path}`}
-            className={`nav-btn ${route === item.path ? "active" : ""}`}
-            aria-current={route === item.path ? "page" : undefined}
-          >
-            <Icon name={item.icon} />
-            <span>{item.label}</span>
-          </a>
-        ))}
+      <nav className="bottom-nav" aria-label="Navegação principal">
+        {NAV.map((item) => {
+          const active = item.match.includes(route);
+          return (
+            <a
+              key={item.path}
+              href={`#${item.path}`}
+              className={`nav-btn ${active ? "active" : ""}`}
+              aria-current={active ? "page" : undefined}
+            >
+              <Icon name={item.icon} />
+              <span>{item.label}</span>
+            </a>
+          );
+        })}
       </nav>
     </div>
   );
