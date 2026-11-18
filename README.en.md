@@ -45,7 +45,10 @@ password-protected HTTPS link.
   before unsaved photos are lost.
 - **Infrastructure:**
   - Docker Compose runs Postgres, FastAPI and nginx over HTTPS.
-  - Alembic handles migrations, and nginx handles authentication.
+  - Alembic handles migrations.
+  - Login uses a custom page and a signed session cookie that nginx verifies through
+    `auth_request`. HTTP Basic Auth was dropped because iOS home-screen web apps never show
+    its password prompt.
   - A permanent public link runs through Tailscale Funnel.
   - CI runs on GitHub Actions.
 

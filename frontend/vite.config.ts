@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "robots.txt"],
+      includeAssets: ["favicon.svg", "robots.txt", "apple-touch-icon.png"],
       manifest: {
         name: "PesoVivo — Pesagem de bovinos por imagem",
         short_name: "PesoVivo",
@@ -25,6 +25,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // A tela de login e a API nunca saem do cache: precisam do servidor.
+        globIgnores: ["**/login.html"],
+        navigateFallbackDenylist: [/^\/login\.html/, /^\/api\//, /^\/photos\//],
         runtimeCaching: [
           {
             urlPattern: /^https?.*\/api\/.*/,

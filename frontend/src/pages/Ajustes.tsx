@@ -180,8 +180,24 @@ export default function Ajustes() {
         {depth && <p className="small muted" style={{ marginTop: 8 }}>{depth.reason}</p>}
       </details>
 
+      <section className="card" aria-labelledby="aj-conta">
+        <h2 id="aj-conta" className="card-title" style={{ marginTop: 0 }}>Acesso</h2>
+        <p className="small muted">Você fica conectado neste aparelho. Saia se o celular for de outra pessoa.</p>
+        <button
+          type="button"
+          className="btn btn-secondary btn-block"
+          onClick={async () => {
+            if (!confirm("Sair deste aparelho? Para voltar, será preciso digitar a senha.")) return;
+            await api.logout().catch(() => undefined);
+            window.location.replace("/login.html");
+          }}
+        >
+          Sair deste aparelho
+        </button>
+      </section>
+
       <p className="small muted" style={{ textAlign: "center" }}>
-        {APP_NAME} · versão 0.2.0. Nenhum dado de terceiros é usado: o modelo aprende só com as suas pesagens.
+        {APP_NAME} · versão 0.3.0. Nenhum dado de terceiros é usado: o modelo aprende só com as suas pesagens.
       </p>
     </div>
   );

@@ -38,6 +38,10 @@ services:
       MAX_PHOTOS_PER_WEIGHING: ${MAX_PHOTOS_PER_WEIGHING:-5}
       MAX_TILT_DEG: ${MAX_TILT_DEG:-5}
       MAX_FRAMES_PER_PASSAGE: ${MAX_FRAMES_PER_PASSAGE:-8}
+      # Login do app (conferido pelo backend; ver routers/auth.py)
+      APP_USER: ${APP_USER:-gado}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
       SEGMENTATION_ENABLED: ${SEGMENTATION_ENABLED:-false}
       YOLO_WEIGHTS: ${YOLO_WEIGHTS:-yolov8n-seg.pt}
     volumes:

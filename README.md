@@ -114,7 +114,10 @@ docker compose --profile remoto up -d --build
 docker compose logs tunnel | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1
 ```
 
-- No celular: abra o link, informe usuário/senha e use **Adicionar à tela inicial**.
+- No celular: abra o link, entre na tela de login do PesoVivo e use **Adicionar à tela inicial**.
+  O login fica salvo por um cookie (até 400 dias). Trocar `APP_PASSWORD` desconecta todos os aparelhos.
+  Não usamos HTTP Basic Auth: no iPhone, o app salvo na tela inicial não mostra a janela de senha
+  e fica com a tela preta.
 - O Mac precisa ficar **ligado, sem dormir**, com o Docker aberto.
 - O link **muda** sempre que o túnel reinicia (ex.: Mac reiniciado). Rode o comando acima para ver o novo.
   Para um link fixo, use o Tailscale Funnel (abaixo).

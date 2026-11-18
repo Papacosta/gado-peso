@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .routers import (
+    auth,
     capture_points,
     animals,
     weighings,
@@ -35,6 +36,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Login (tela própria + cookie)
+app.include_router(auth.router)
 
 # Rotas da Fase 1
 app.include_router(capture_points.router)

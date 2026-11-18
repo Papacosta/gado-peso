@@ -21,8 +21,21 @@ class ApiError extends Error {
   }
 }
 
+/**
+ * fetch com tratamento de sessão: se o servidor responder 401 (login
+ * expirado ou nunca feito), leva para a tela de login. Os dados da fila
+ * offline continuam no celular e são enviados depois de entrar.
+ */
+async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(url, { credentials: "same-origin", ...init });
+  if (res.status === 401 && !API_BASE && !url.includes("/api/auth/")) {
+    window.location.replace("/login.html");
+  }
+  return res;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await apiFetch(`${API_BASE}${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
@@ -46,6 +59,7 @@ export function apiError(err: unknown): string {
 }
 
 export const api = {
+  logout: () => apiFetch(`${API_BASE}/api/auth/logout`, { method: "POST" }),
   health: () => request<{ status: string }>("/api/health"),
 
   // Pontos de captura -----------------------------------------------------
@@ -83,7 +97,7 @@ export const api = {
     form.append("sensors", JSON.stringify(args.sensors));
     form.append("width", String(args.width));
     form.append("height", String(args.height));
-    const res = await fetch(`${API_BASE}/api/photos`, { method: "POST", body: form });
+    const res = await apiFetch(`${API_BASE}/api/photos`, { method: "POST", body: form });
     if (!res.ok) {
       let detail = `Erro ${res.status}`;
       try {
@@ -126,7 +140,7 @@ export const api = {
     if (args.category) form.append("category", args.category);
     if (args.ageMonths !== undefined) form.append("age_months", String(args.ageMonths));
     if (args.bcs !== undefined) form.append("bcs", String(args.bcs));
-    const res = await fetch(`${API_BASE}/api/model/estimate`, { method: "POST", body: form });
+    const res = await apiFetch(`${API_BASE}/api/model/estimate`, { method: "POST", body: form });
     if (!res.ok) {
       let detail = `Erro ${res.status}`;
       try {
@@ -162,7 +176,7 @@ export const api = {
       JSON.stringify(args.frames.map((f) => ({ captured_at: f.capturedAt, detection: f.detection })))
     );
     args.frames.forEach((f, i) => form.append("frames", f.blob, `${args.passageId}-${i}.jpg`));
-    const res = await fetch(`${API_BASE}/api/passages`, { method: "POST", body: form });
+    const res = await apiFetch(`${API_BASE}/api/passages`, { method: "POST", body: form });
     if (!res.ok) {
       let detail = `Erro ${res.status}`;
       try {
