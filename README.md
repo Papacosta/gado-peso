@@ -37,6 +37,47 @@ Persistência:
 - **Banco:** volume Docker nomeado `pgdata`.
 - **Fotos e modelos:** pasta `./data` (`data/photos/`, `data/models/`), montada em `/data`.
 
+### Acesso pelo celular de qualquer lugar (Cloudflare Tunnel)
+
+O app roda no Mac; um túnel gratuito da Cloudflare (sem conta) cria um link `https://….trycloudflare.com`
+com certificado válido, acessível pelo 4G/fazenda. **Antes**, defina usuário e senha no `.env`
+(`APP_USER` / `APP_PASSWORD`): sem senha, qualquer pessoa com o link veria os dados.
+
+```bash
+docker compose --profile remoto up -d --build
+docker compose logs tunnel | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1
+```
+
+- No celular: abra o link, informe usuário/senha e use **Adicionar à tela inicial**.
+- O Mac precisa ficar **ligado, sem dormir**, com o Docker aberto.
+- O link **muda** sempre que o túnel reinicia (ex.: Mac reiniciado). Rode o comando acima para ver o novo.
+  Para um link fixo, use o Tailscale Funnel (abaixo).
+- Banco (`DB_PORT`) e API (8000) ficam acessíveis só no próprio Mac; pela rede, tudo passa pelo
+  frontend com senha.
+
+### Link fixo (Tailscale Funnel, gratuito)
+
+Endereço que não muda: `https://gado-peso.<sua-rede>.ts.net`. O celular não precisa instalar nada.
+
+1. Crie uma conta em tailscale.com; no painel, em **DNS**, deixe **MagicDNS** ligado e ative
+   **HTTPS Certificates**.
+2. Gere uma auth key (Settings → Keys, sem "Ephemeral") e coloque em `TS_AUTHKEY` no `.env`.
+3. Suba e ligue o Funnel (só na 1ª vez; fica salvo no volume `tsstate`). Se pedir para ativar o
+   Funnel na rede, abra o link que aparecer e confirme.
+
+```bash
+docker compose --profile fixo up -d
+docker compose exec funnel tailscale status --json | grep -m1 DNSName   # → gado-peso.<rede>.ts.net
+echo '{"TCP":{"443":{"HTTPS":true}},"Web":{"gado-peso.<rede>.ts.net:443":{"Handlers":{"/":{"Proxy":"https+insecure://frontend:443"}}}},"AllowFunnel":{"gado-peso.<rede>.ts.net:443":true}}' \
+  | docker compose exec -T funnel tailscale serve set-raw
+```
+
+4. Coloque o endereço em `PUBLIC_URL` no `.env` e rode `docker compose --profile fixo up -d` de novo:
+   o contêiner acessa o próprio link a cada minuto para mantê-lo "aquecido".
+
+Depois que o link fixo estiver no ar, o túnel da Cloudflare pode ser desligado com
+`docker compose --profile remoto stop tunnel`.
+
 ### Fase 2 (opcional, imagem mais pesada)
 
 A segmentação usa YOLOv8-seg (pesos genéricos, classe COCO `cow`) apenas para recortar a

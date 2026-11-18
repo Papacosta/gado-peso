@@ -1,12 +1,14 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: gado
       POSTGRES_PASSWORD: gado
       POSTGRES_DB: gado
     ports:
-      - "5432:5432"
+      # Só acessível no próprio Mac (não fica exposto na rede).
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -16,6 +18,7 @@ services:
       retries: 10
 
   backend:
+    restart: unless-stopped
     build:
       context: ./backend
       args:
@@ -37,7 +40,8 @@ services:
       # Volume persistente do banco é nomeado; fotos/modelos ficam em ./data.
       - ./data:/data
     ports:
-      - "8000:8000"
+      # API direta só no próprio Mac; celulares usam o frontend (com senha).
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -47,11 +51,57 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: ${VITE_API_URL:-}
+    environment:
+      APP_USER: ${APP_USER:-gado}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+    restart: unless-stopped
     ports:
       # HTTPS com certificado autoassinado: necessário para câmera/PWA no celular.
       - "5173:443"
     depends_on:
       - backend
 
+  # Acesso remoto (celular fora de casa): link https público via Cloudflare
+  # Tunnel, sem conta. Suba com:  docker compose --profile remoto up -d
+  # O endereço aparece em:        docker compose logs tunnel | grep trycloudflare
+  tunnel:
+    image: cloudflare/cloudflared:2025.4.0
+    profiles: ["remoto"]
+    command: tunnel --no-autoupdate --url https://frontend:443 --no-tls-verify
+    restart: unless-stopped
+    depends_on:
+      - frontend
+
+  # Link FIXO e público (https://gado-peso.<sua-rede>.ts.net) via Tailscale
+  # Funnel, gratuito. Requer conta Tailscale e TS_AUTHKEY no .env.
+  # Suba com:  docker compose --profile fixo up -d
+  # Na 1ª vez, ligue o Funnel (fica salvo no volume tsstate):
+  #   docker compose exec funnel tailscale funnel --bg https+insecure://frontend:443
+  funnel:
+    image: tailscale/tailscale:v1.104.7
+    profiles: ["fixo"]
+    hostname: gado-peso
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: gado-peso
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      PUBLIC_URL: ${PUBLIC_URL:-}
+    volumes:
+      - tsstate:/var/lib/tailscale
+    # Acessa o próprio link público a cada minuto: mantém as conexões do
+    # Funnel "aquecidas" (sem isso o primeiro acesso após um tempo parado
+    # pode falhar).
+    healthcheck:
+      test: ["CMD-SHELL", "[ -z \"$$PUBLIC_URL\" ] || wget -q -T 15 -O /dev/null \"$$PUBLIC_URL/manifest.webmanifest\""]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      - frontend
+
 volumes:
   pgdata:
+  tsstate:
